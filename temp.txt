@@ -1,0 +1,219 @@
+import pandas as pd
+import numpy as np
+from enum import Enum
+
+class Method(Enum):
+  USER = 'user'
+  ITEM = 'item'
+
+class RecSystem:
+  def __init__(self, adjMatrix, method=Method.USER):
+    self.matrix = (np.array(adjMatrix) if method==Method.USER else np.array(adjMatrix).T)
+    self.num_rows, self.num_cols = self.matrix.shape
+    self.method = method
+
+  def _cosine_similarity(self, vec1, vec2):
+    mask = (vec1 != -1) & (vec2 != -1)
+    v1 = vec1[mask]
+    v2 = vec2[mask]
+
+    dot = np.dot(v1, v2)
+    norm1 = np.linalg.norm(v1)
+    norm2 = np.linalg.norm(v2)
+
+    if norm1 == 0 or norm2 == 0:
+      return 0
+    else:
+      return dot/(norm1 * norm2)
+
+  def get_recomendation(self, user_id, item_id, k=3):
+    if self.method == Method.USER:
+      row_id = user_id
+      col_id = item_id
+    else:
+      row_id = item_id
+      col_id = user_id
+
+    ratings = self.matrix[row_id]
+
+    similarities = []
+    for i in range(self.num_rows):
+      if i != row_id:
+        other_ratings = self.matrix[i]
+        cosine_similarity = self._cosine_similarity(ratings, other_ratings)
+        similarities.append((i, cosine_similarity))
+
+    similarities.sort(key=lambda x: x[1], reverse=True)
+
+    top_k_similarities = similarities[:k]
+
+    total_score = 0
+    total_weight = 0
+
+    for i, similarity in top_k_similarities:
+      if self.matrix[i][col_id] != -1:
+        total_score += similarity*self.matrix[i][col_id]
+        total_weight += similarity
+
+    if total_score == 0:
+      return 0
+    else:
+      return total_score/total_weight
+
+
+ratings = [
+    [5, 3, -1, -1, 2],
+    [4, -1, -1, 2, 1],
+    [1, 1, -1, 4, 5],
+    [-1, -1, 4, 3, -1],
+    [-1, -1, 4, 1, -1]
+]
+
+# Predict rating for user 0 and item 2 using user-based method
+rs = RecSystem(ratings, method=Method.USER)
+
+predicted_rating_user = rs.get_recomendation(user_id=3, item_id=0, k=3)
+print(f"Predicted rating ({Method.USER.value}-based):", predicted_rating_user)
+
+# Predict rating for item 1 and user 3 using item-based method
+rs2 = RecSystem(ratings, method=Method.ITEM)
+
+predicted_rating_user = rs2.get_recomendation(user_id=0, item_id=4, k=3)
+print(f"Predicted rating ({Method.ITEM.value}-based):", predicted_rating_user)
+
+
+import numpy as np
+
+adj_matrix = [[0,0,1,0,0,0,0],
+[0,1,1,0,0,0,0],
+[1,0,1,2,0,0,0],
+[0,0,0,1,1,0,0],
+[0,0,0,0,0,0,1],
+[0,0,0,0,0,1,1],
+[0,0,0,2,1,0,1]
+]
+
+
+n = len(adj_matrix)
+
+A = np.array(adj_matrix)
+
+a=h=np.array([1]*n).T
+i=0
+
+while True:
+
+  new_h = np.matmul(A, a)
+  new_a = np.matmul(A.T, h)
+
+  new_a = new_a/sum(new_a)
+  new_h = new_h/sum(new_h)
+
+  if np.allclose(new_a, a) and np.allclose(new_h, h):
+    break
+  elif i==1000:
+    break
+  a = new_a
+  h = new_h
+  i+=1
+
+top_k_auth = np.argsort(a)[::-1][:2]
+print(a, h)
+
+import numpy as np
+
+adj_matrix = [[0,0,1,0,0,0,0],
+[0,1,1,0,0,0,0],
+[1,0,1,2,0,0,0],
+[0,0,0,1,1,0,0],
+[0,0,0,0,0,0,1],
+[0,0,0,0,0,1,1],
+[0,0,0,2,1,0,1]
+]
+
+
+n = len(adj_matrix)
+
+A = np.array(adj_matrix)
+
+def get_eigen_vector(M):
+  eig_val, eig_vects = np.linalg.eig(M)
+
+  index = np.argmax(eig_val)
+
+  eig_vec = eig_vects[:, index]
+
+  return eig_vec/sum(eig_vec)
+
+a = get_eigen_vector(np.matmul(A.T, A))
+h = get_eigen_vector(np.matmul(A, A.T))
+print(a,h)
+
+def G(matrix, alpha=0.5):
+  G = matrix
+  n = len(G[0])
+  for i in range(len(G)):
+    if np.all(np.equal(G[i], 0)):
+      G[i] = [1/n]*n
+    else:
+      G[i] = np.divide(G[i], np.sum(G[i]))
+    G[i] = np.multiply(G[i], (1-alpha))
+    G[i] = np.add(G[i], alpha/n)
+  return np.array(G)
+
+adj_matrix = [[0, 0, 0, 0],
+              [1, 0, 1, 1],
+              [0, 0, 0, 0],
+              [0, 0, 1, 1]]
+
+
+n = len(adj_matrix)
+g = G(adj_matrix)
+
+h = np.array([1/n]*n)
+i=0
+while True:
+  new_h = np.matmul(h.T, g)
+  if np.allclose(new_h, h):
+    print(i)
+    break
+  elif i==1000:
+    break
+  h = new_h
+  i+=1
+
+print(h)
+
+
+def G(matrix, alpha=0.5):
+  G = matrix
+  n = len(G[0])
+  for i in range(len(G)):
+    if np.all(np.equal(G[i], 0)):
+      G[i] = [1/n]*n
+    else:
+      G[i] = np.divide(G[i], np.sum(G[i]))
+    G[i] = np.multiply(G[i], (1-alpha))
+    G[i] = np.add(G[i], alpha/n)
+  return np.array(G)
+
+def get_eigen_vec(A):
+  eigen_values, eigen_vectors = np.linalg.eig(A)
+
+  index = np.argmax(eigen_values)
+
+  eig_v = eigen_vectors[:, index]
+
+  return np.divide(eig_v, sum(eig_v))
+
+adj_matrix = [[0, 0, 0, 0],
+              [1, 0, 1, 1],
+              [0, 0, 0, 0],
+              [0, 0, 1, 1]]
+
+
+n = len(adj_matrix)
+g = G(adj_matrix)
+
+print(get_eigen_vec(g.T))
+
